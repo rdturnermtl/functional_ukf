@@ -13,13 +13,16 @@
 #     name: gp_ukf
 # ---
 
-from sklearn.gaussian_process import kernels
+import matplotlib.pyplot as plt
 import numpy as np
+from filterpy.kalman.sigma_points import MerweScaledSigmaPoints
+from filterpy.kalman.unscented_transform import unscented_transform
+from sklearn.gaussian_process import kernels
 
 # kernel = kernels.Matern(length_scale=0.1, nu=3.5)
 kernel = kernels.RBF(length_scale=0.1)
 
-xgrid = np.linspace(0,1,100)
+xgrid = np.linspace(0, 1, 100)
 
 K = kernel(xgrid[:, None])
 
@@ -49,19 +52,16 @@ def sqrt_U(K):
 sqrt_K = sqrt_U(K)
 np.max(np.abs(np.matmul(sqrt_K.T, sqrt_K) - K))
 
-import matplotlib.pyplot as plt
 
-plt.plot(sqrt_K[-3, :], '.-')
+plt.plot(sqrt_K[-3, :], ".-")
 
 sqrt_K_crop = sqrt_K + 0.0
 sqrt_K_crop[20:, :] = 0.0
 
 np.max(np.abs(np.matmul(sqrt_K_crop.T, sqrt_K_crop) - K))
 
-plt.plot(sqrt_K_crop.T, '.-')
+plt.plot(sqrt_K_crop.T, ".-")
 
-from filterpy.kalman.unscented_transform import unscented_transform
-from filterpy.kalman.sigma_points import MerweScaledSigmaPoints
 
 points = MerweScaledSigmaPoints(n=len(xgrid), alpha=1e-3, beta=2.0, kappa=0.0, sqrt_method=sqrt_U)
 Wm = points.Wm
@@ -73,6 +73,8 @@ sigma_points.shape
 
 W = np.random.randn(100, 99)
 b = np.random.randn(99)
+
+
 def fx(x):
     return np.matmul(x, W) + b
 
@@ -108,5 +110,3 @@ mu_post, K_post = unscented_transform(transformed_sigma_points, Wm, Wc)
 np.max(np.abs(mu_post - b))
 
 np.max(np.abs(K_post - np.matmul(np.matmul(W.T, K), W)))
-
-

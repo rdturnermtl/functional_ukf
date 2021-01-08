@@ -1,7 +1,7 @@
-from sklearn.gaussian_process import GaussianProcessRegressor
 import numpy as np
-from filterpy.kalman.unscented_transform import unscented_transform
 from filterpy.kalman.sigma_points import MerweScaledSigmaPoints
+from filterpy.kalman.unscented_transform import unscented_transform
+from sklearn.gaussian_process import GaussianProcessRegressor
 
 
 def sqrt_U_approx(K, eig_thold=1e-10):
@@ -16,7 +16,7 @@ def sqrt_U_approx(K, eig_thold=1e-10):
 
 def big_ut(mu_prior, K_prior, fx, *, alpha=1e-3, beta=2.0, kappa=0.0):
     n, = mu_prior.shape
-    assert K_prior.shape (n, n)
+    assert K_prior.shape(n, n)
 
     points = MerweScaledSigmaPoints(n=n, alpha=alpha, beta=beta, kappa=kappa, sqrt_method=sqrt_U_approx)
     Wm = points.Wm
@@ -32,7 +32,7 @@ def big_ut(mu_prior, K_prior, fx, *, alpha=1e-3, beta=2.0, kappa=0.0):
 
 
 def gp_ukf(gpr, xgrid, fx):
-    assert isinstance(gpr, sklearn.gaussian_process.GaussianProcessRegressor)
+    assert isinstance(gpr, GaussianProcessRegressor)
     n, _ = xgrid.shape
 
     mu_prior, K_prior = gpr.predict(xgrid, return_std=False, return_cov=True)
