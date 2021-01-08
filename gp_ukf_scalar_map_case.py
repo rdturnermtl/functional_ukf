@@ -15,11 +15,11 @@
 
 # +
 import matplotlib.pyplot as plt
-
 import numpy as np
 from gp_ukf_core import big_ut
-from sklearn.gaussian_process import kernels
 from scipy.stats import norm
+from sklearn.gaussian_process import kernels
+
 # -
 
 np.random.seed(0)
@@ -48,9 +48,14 @@ LB, UB = norm.interval(0.95, loc=mu, scale=std)
 y = np.random.multivariate_normal(mu, K, size=5)
 # -
 
-plt.fill(np.concatenate([xgrid, xgrid[::-1]]),
-         np.concatenate([np.exp(LB), np.exp(UB[::-1])]),
-         alpha=.25, fc='b', ec='None', label='95% confidence interval')
+plt.fill(
+    np.concatenate([xgrid, xgrid[::-1]]),
+    np.concatenate([np.exp(LB), np.exp(UB[::-1])]),
+    alpha=0.25,
+    fc="b",
+    ec="None",
+    label="95% confidence interval",
+)
 plt.plot(xgrid, warp_func(y.T))
 
 # Get GP UKF version
@@ -63,9 +68,14 @@ LB, UB = norm.interval(0.95, loc=mu_post, scale=std_post)
 y = np.random.multivariate_normal(mu_post, K_post, size=5)
 # -
 
-plt.fill(np.concatenate([xgrid, xgrid[::-1]]),
-         np.concatenate([LB, UB[::-1]]),
-         alpha=.25, fc='b', ec='None', label='95% confidence interval')
+plt.fill(
+    np.concatenate([xgrid, xgrid[::-1]]),
+    np.concatenate([LB, UB[::-1]]),
+    alpha=0.25,
+    fc="b",
+    ec="None",
+    label="95% confidence interval",
+)
 plt.plot(xgrid, y.T)
 
 # +
