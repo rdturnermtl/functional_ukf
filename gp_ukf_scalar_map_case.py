@@ -74,7 +74,7 @@ ax1.fill(
     ec="None",
     label="95% confidence interval",
 )
-ax1.plot(xgrid, mu_mc, 'k')
+ax1.plot(xgrid, mu_mc, "k")
 ax1.plot(xgrid, y_exact.T)
 ax1.set_xlim(xgrid[0], xgrid[-1])
 ax1.grid("on")
@@ -94,5 +94,3 @@ ax2.grid("on")
 
 plt.tight_layout()
 # -
-
-
