@@ -26,6 +26,7 @@ n = 500
 
 # Try warping thru exp
 warp_func = np.exp
+# warp_func = lambda x_: x_ ** 3
 
 # +
 # Define domain and build kernel
@@ -42,8 +43,8 @@ K = kernel(xgrid[:, None])
 # Get the exact/MC version
 std = np.sqrt(np.diag(K))
 LB, UB = norm.interval(0.95, loc=mu, scale=std)
-LB = np.exp(LB)
-UB = np.exp(UB)
+LB = warp_func(LB)
+UB = warp_func(UB)
 
 rnd = np.random.RandomState(123)
 y_exact = warp_func(rnd.multivariate_normal(mu, K, size=5))
@@ -93,4 +94,3 @@ ax2.set_xlim(xgrid[0], xgrid[-1])
 ax2.grid("on")
 
 plt.tight_layout()
-# -
