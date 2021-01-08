@@ -10,13 +10,16 @@ def sqrt_U_approx(K, eig_thold=1e-10):
 
     assert np.isclose(s[0], np.max(s))
     crop = (s / s[0]) < eig_thold
+    # TODO switch to logging package
+    print(f"Zero out {np.sum(crop)} / {crop.size} rows.")
+
     sqrt_K[crop, :] = 0.0
     return sqrt_K
 
 
 def big_ut(mu_prior, K_prior, fx, *, alpha=1e-3, beta=2.0, kappa=0.0):
     n, = mu_prior.shape
-    assert K_prior.shape(n, n)
+    assert K_prior.shape == (n, n)
 
     points = MerweScaledSigmaPoints(n=n, alpha=alpha, beta=beta, kappa=kappa, sqrt_method=sqrt_U_approx)
     Wm = points.Wm
