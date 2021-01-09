@@ -16,6 +16,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from gp_ukf_core import gp_ukf
+from scipy.special import betaln
 from scipy.stats import beta, binom, norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
@@ -50,6 +51,20 @@ def log_integrand(p):
     logpdf = beta.logpdf(p, alpha0, beta0) + binom.logpmf(x_sum, n_data, p)
     return logpdf
 
+
+# +
+# Also get get exact loglik for ground truth
+def binomln(n, k):
+    # Assumes binom(n, k) >= 0
+    return -betaln(1 + n - k, 1 + k) - np.log(n + 1)
+
+
+def marg_loglik(k, n, alpha0, beta0):
+    loglik = binomln(n, k) + (betaln(k + alpha0, (n - k) + beta0) - betaln(alpha0, beta0))
+    return loglik
+
+
+# -
 
 # Get the "data" about the nrg for BMC
 logpdf = log_integrand(p_eval)
@@ -138,4 +153,12 @@ bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
 # -
 
 print(f"MC estimate: {mc_estimate}, BMC CI: {CI}")
+print(f"tail prob: {bmc_tail_prob}")
+
+# Now we can test againt exact
+exact_lik = np.exp(marg_loglik(x_sum, n_data, alpha0, beta0))
+bmc_tail_prob = norm.cdf(exact_lik, loc=mu_post, scale=np.sqrt(K_post))
+bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
+
+print(f"exact: {exact_lik}, BMC CI: {CI}")
 print(f"tail prob: {bmc_tail_prob}")
