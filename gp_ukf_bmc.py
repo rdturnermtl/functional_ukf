@@ -16,31 +16,43 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from gp_ukf_core import gp_ukf
-from scipy.stats import beta, binom
+from scipy.stats import beta, binom, norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 
 np.random.seed(0)
 
 # +
-n = 500
-
-# model sampling
+# Parameters for the model we want marginal likelihood of
 alpha0 = 1.0
 beta0 = 1.0
 n_data = 10
+
+# Sufficient statistics of the data
 x_sum = 6
 
-p_grid = np.linspace(0.0, 1.0, n)
-p_eval = np.linspace(0.01, 0.99, 10)
+# How many points can we evaluate the nrg
+n_nrg = 10
+
+# How many points will we interp with GP in functional-UKF
+n_interp = 500
 
 
 # -
 
 
+# Setup grids
+p_grid = np.linspace(0.0, 1.0, n_interp)
+p_eval = np.linspace(0.01, 0.99, n_nrg)
+
+
 def log_integrand(p):
     logpdf = beta.logpdf(p, alpha0, beta0) + binom.logpmf(x_sum, n_data, p)
     return logpdf
+
+
+# Get the "data" about the nrg for BMC
+logpdf = log_integrand(p_eval)
 
 
 def warp_func(loglik_surface):
@@ -56,32 +68,74 @@ def warp_func(loglik_surface):
     return int_val
 
 
-# +
-logpdf = log_integrand(p_eval)
-
+# Setup and train GP to the observations on the nrg
 kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(0.1, (1e-2, 1e2))
-gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=True, alpha=1e-5)  # TODO kernel etc
+gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=True, alpha=1e-5)
 gpr.fit(p_eval[:, None], logpdf)
+gpr.kernel_
+
+# Now use GP-UKF to transform this into Gaussian on marginal lik
+mu_post, K_post = gp_ukf(gpr, p_grid[:, None], warp_func)
+# Convert to scalars since in this case transform gives a scalar
+mu_post = mu_post.item()
+K_post = K_post.item()
+
+# Give final estimation
+CI = (mu_post - 1.96 * np.sqrt(K_post), mu_post + 1.96 * np.sqrt(K_post))
+print(f"marglik ~ N({mu_post}, {np.sqrt(K_post)}) => CI: {CI}")
+
+# +
+# Now let's gets some more variables for visualizations
+mu_prior, K_prior = gpr.predict(p_grid[:, None], return_std=False, return_cov=True)
+LB = mu_prior - 1.96 * np.sqrt(np.diag(K_prior))
+UB = mu_prior + 1.96 * np.sqrt(np.diag(K_prior))
+
+logpdf_true = log_integrand(p_grid)
+
+
+# +
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(6, 6))
+
+ax1.fill(
+    np.concatenate([p_grid, p_grid[::-1]]),
+    np.concatenate([LB, UB[::-1]]),
+    alpha=0.25,
+    fc="b",
+    ec="None",
+    label="95% confidence interval",
+)
+ax1.plot(p_grid, logpdf_true, "r-")
+ax1.plot(p_grid, mu_prior, "k")
+ax1.plot(p_eval, logpdf, ".")
+ax1.set_xlim(p_grid[0], p_grid[-1])
+ax1.grid("on")
+ax1.set_ylabel("log lik")
+
+ax2.fill(
+    np.concatenate([p_grid, p_grid[::-1]]),
+    np.concatenate([np.exp(LB), np.exp(UB[::-1])]),
+    alpha=0.25,
+    fc="b",
+    ec="None",
+    label="95% confidence interval",
+)
+ax2.plot(p_grid, np.exp(logpdf_true), "r-")
+ax2.plot(p_grid, np.exp(mu_prior), "k")
+ax2.plot(p_eval, np.exp(logpdf), ".")
+ax2.grid("on")
+ax2.set_xlabel("p")
+ax2.set_ylabel("lik")
+
+plt.tight_layout()
+
+# +
+# Now let's do MC estimate of integral with big N
+p_sample = np.random.rand(10 ** 5)
+mc_estimate = np.mean(np.exp(log_integrand(p_sample)))
+
+bmc_tail_prob = norm.cdf(mc_estimate, loc=mu_post, scale=np.sqrt(K_post))
+bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
 # -
 
-mu_post, K_post = gp_ukf(gpr, p_grid[:, None], warp_func)
-
-mu_post
-
-K_post
-
-(mu_post.item() - 1.96 * np.sqrt(K_post.item()), mu_post.item() + 1.96 * np.sqrt(K_post.item()))
-
-mu_prior, K_prior = gpr.predict(p_grid[:, None], return_std=False, return_cov=True)
-
-
-plt.plot(p_grid, mu_prior)
-plt.plot(p_grid, mu_prior + 1.96 * np.sqrt(np.diag(K_prior)), "k--")
-plt.plot(p_grid, mu_prior - 1.96 * np.sqrt(np.diag(K_prior)), "k--")
-plt.plot(p_eval, logpdf, ".")
-
-p_sample = np.random.rand(10000)
-
-est = np.mean(np.exp(log_integrand(p_sample)))
-
-est
+print(f"MC estimate: {mc_estimate}, BMC CI: {CI}")
+print(f"tail prob: {bmc_tail_prob}")
