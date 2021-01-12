@@ -15,20 +15,17 @@
 
 from itertools import product
 
-# +
 import numpy as np
 from gp_ukf_core import gp_ukf
 from scipy.stats import multivariate_normal, mvn
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 
-# -
-
 np.random.seed(0)
 
 # +
-d = 2
-n_grid = 50
+d = 3
+n_grid = 15
 
 xgrid = np.linspace(0.0, 1.0, n_grid + 1)
 dx = np.median(np.diff(xgrid))
