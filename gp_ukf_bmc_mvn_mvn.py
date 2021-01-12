@@ -24,18 +24,22 @@ from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 
 np.random.seed(0)
 
+# +
 # For 3D try: d = 3, n_grid = 15
 d = 2
 n_grid = 50
 n_eval_grid = 8
 
+lb = 1.5
+ub = 3.5
+
 # +
 # Build grids
-xgrid = np.linspace(0.0, 1.0, n_grid + 1)
+xgrid = np.linspace(lb, ub, n_grid + 1)
 dx = np.median(np.diff(xgrid))
 xgrid = np.array(list(product(xgrid[:-1], repeat=d)))
 
-eval_grid = np.linspace(0.0, 1.0, n_eval_grid + 1)
+eval_grid = np.linspace(lb, ub, n_eval_grid + 1)
 eval_grid = np.array(list(product(eval_grid[:-1], repeat=d)))
 # -
 
@@ -84,7 +88,7 @@ CI = (mu_post - 1.96 * np.sqrt(K_post), mu_post + 1.96 * np.sqrt(K_post))
 print(f"P ~ N({mu_post}, {np.sqrt(K_post)}) => CI: {CI}")
 
 xs = np.random.multivariate_normal(mvn_mu, mvn_cov, size=10 ** 5)
-prob_mc = np.mean(np.all((0.0 <= xs) & (xs <= 1.0), axis=1))
+prob_mc = np.mean(np.all((lb <= xs) & (xs <= ub), axis=1))
 
 bmc_tail_prob = norm.cdf(prob_mc, loc=mu_post, scale=np.sqrt(K_post))
 bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
@@ -92,7 +96,7 @@ bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
 print(f"MC estimate: {prob_mc}, BMC CI: {CI}")
 print(f"tail prob: {bmc_tail_prob}")
 
-prob_exact, _ = mvn.mvnun(np.zeros(d), np.ones(d), mvn_mu, mvn_cov)
+prob_exact, _ = mvn.mvnun(lb + np.zeros(d), ub + np.zeros(d), mvn_mu, mvn_cov)
 
 bmc_tail_prob = norm.cdf(prob_exact, loc=mu_post, scale=np.sqrt(K_post))
 bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
@@ -106,7 +110,7 @@ bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
 print(f"Exact estimate on same grid: {prob_full}, BMC CI: {CI}")
 print(f"tail prob: {bmc_tail_prob}")
 
-xsec_grid = xgrid[np.all(xgrid[:, 1:] == 0.0, axis=1), :]
+xsec_grid = xgrid[np.all(xgrid[:, 1:] == lb, axis=1), :]
 
 # +
 mu_prior, K_prior = gpr.predict(xsec_grid, return_std=False, return_cov=True)
@@ -145,7 +149,7 @@ ax2.fill(
 ax2.plot(scalar_grid, np.exp(logpdf_true), "r-")
 ax2.plot(scalar_grid, np.exp(mu_prior), "k")
 ax2.grid("on")
-ax2.set_xlabel("p")
+ax2.set_xlabel("$x_0$")
 ax2.set_ylabel("lik")
 
 plt.tight_layout()
