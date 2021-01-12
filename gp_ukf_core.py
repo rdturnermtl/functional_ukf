@@ -4,7 +4,7 @@ from filterpy.kalman.unscented_transform import unscented_transform
 from sklearn.gaussian_process import GaussianProcessRegressor
 
 
-def sqrt_U_approx(K, eig_thold=1e-10):
+def sqrt_U_approx(K, eig_thold=1e-6):
     u, s, vh = np.linalg.svd(K)
     sqrt_K = np.matmul(u, np.diag(np.sqrt(s))).T
 

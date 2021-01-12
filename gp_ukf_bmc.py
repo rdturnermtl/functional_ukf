@@ -26,7 +26,7 @@ np.random.seed(0)
 # +
 # Parameters for the model we want marginal likelihood of
 alpha0 = 1.0
-beta0 = 1.0
+beta0 = 3.0
 n_data = 10
 
 # Sufficient statistics of the data
@@ -55,7 +55,8 @@ def log_integrand(p):
 # +
 # Also get get exact loglik for ground truth
 def binomln(n, k):
-    # Assumes binom(n, k) >= 0
+    assert np.all(k >= 0)
+    assert np.all(k <= n)
     return -betaln(1 + n - k, 1 + k) - np.log(n + 1)
 
 
