@@ -13,16 +13,12 @@
 #     name: gp_ukf
 # ---
 
-
-# +
 import numpy as np
 from gp_ukf_core import gp_ukf
 from joblib import Memory
 from pde import PDE, CartesianGrid, MemoryStorage, ScalarField, plot_kymograph
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
-
-# -
 
 memory = Memory(location=".")
 
