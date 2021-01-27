@@ -15,7 +15,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gp_ukf_core import gp_sigma_points, gp_ukf, sqrt_U_approx
+from gp_ukf_core import gp_sigma_points, gp_ukf
 from joblib import Memory
 from pde import PDE, CartesianGrid, MemoryStorage, ScalarField, plot_kymograph
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -33,7 +33,7 @@ def only(L):
 
 class pde_operator(object):
     dt = 1e-3
-    tracker_dt = 1.0
+    tracker_dt = 1e-2
 
     def __init__(self, n_grid=64, bounds=(-5.0, 5.0)):
         # Generate grid
@@ -85,37 +85,60 @@ xgrid = op.grid
 kernel = ConstantKernel(0.05, constant_value_bounds="fixed") * RBF(1.0, length_scale_bounds="fixed")
 gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=False, alpha=1e-5)
 
-init = only(gpr.sample_y(xgrid[:, None], 1, random_state=123).T)
-ex_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
+# +
+# Sample an initial condition for PDE
+actual_input = only(gpr.sample_y(xgrid[:, None], 1, random_state=123).T)
 
-plt.plot(xgrid, np.exp(ex_input.T), "--")
-plt.plot(xgrid, np.exp(init), "k")
+# Also get the output state for the initial condition
+actual_output = only(op.forward(actual_input[None, :]))
+# -
 
-actual_out = only(op.forward(init[None, :]))
-ex_out = op.forward(ex_input)
+# Setup GP prior with some limit observations of initial PDE state
+input_obs_points, input_obs = xgrid[::10], actual_input[::10]
+gpr.fit(input_obs_points[:, None], input_obs)
 
-plt.plot(xgrid, np.exp(ex_out.T), "--")
-plt.plot(xgrid, np.exp(actual_out), "k")
+# # Diffusion of actual input
 
-_, storage = op.pde_solve(init, T=100)
+_, storage = op.pde_solve(actual_input)
 
 plot_kymograph(storage)  # visualize the result in a space-time plot
 
-gpr.fit(xgrid[:, None][::10], init[::10])
-gpr.kernel_
+# # Uncertainty on input state
 
-ex_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
+example_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
 
-plt.plot(xgrid, np.exp(ex_input.T), "--")
-plt.plot(xgrid, np.exp(init), "k")
+plt.plot(xgrid, np.exp(example_input.T), "--")
+plt.plot(xgrid, np.exp(actual_input), "k")
+plt.plot(input_obs_points, np.exp(input_obs), "ro")
 
-ex_out = op.forward(ex_input)
+# # Uncertainty on output state
 
-plt.plot(xgrid, np.exp(ex_out.T), "--")
-plt.plot(xgrid, np.exp(actual_out), "k")
+example_output = op.forward(example_input)
+
+plt.plot(xgrid, np.exp(example_output.T), "--")
+plt.plot(xgrid, np.exp(actual_output), "k")
+
+# # UT on input
+
+sigma_points = gp_sigma_points(gpr, xgrid[:, None], alpha=0.1)
+
+plt.plot(xgrid, np.exp(sigma_points.T), "--")
+plt.plot(xgrid, np.exp(actual_input), "k")
+plt.plot(xgrid, np.exp(sigma_points[0]), "k--")
+plt.plot(input_obs_points, np.exp(input_obs), "ro")
+
+# # UT for output
+
+sigma_points_out = op.forward(sigma_points)
+
+plt.plot(xgrid, np.exp(sigma_points_out.T), "--")
+plt.plot(xgrid, np.exp(sigma_points_out[0]), "k--")
+plt.plot(xgrid, np.exp(actual_output), "k")
+
+# # Putting it all together
 
 # Now use GP-UKF to transform this into Gaussian on prob
-mu_post, K_post, sigma_points = gp_ukf(gpr, xgrid[:, None], op.forward, alpha=0.1)
+mu_post, K_post = gp_ukf(gpr, xgrid[:, None], op.forward, alpha=0.1)
 
 # +
 # TODO cleanup plot
@@ -124,34 +147,4 @@ xgrid = op.grid
 plt.plot(xgrid, np.exp(mu_post), "k")
 plt.plot(xgrid, np.exp(mu_post - 1.96 * np.sqrt(np.diag(K_post))), "k--")
 plt.plot(xgrid, np.exp(mu_post + 1.96 * np.sqrt(np.diag(K_post))), "k--")
-plt.plot(xgrid, np.exp(actual_out), "r")
-# -
-
-plt.plot(xgrid, np.exp(sigma_points.T), "--")
-plt.plot(xgrid, np.exp(init), "k")
-
-sigma_points_out = op.forward(sigma_points)
-
-plt.plot(xgrid, np.exp(np.min(sigma_points_out, axis=0)), "--")
-plt.plot(xgrid, np.exp(np.max(sigma_points_out, axis=0)), "--")
-plt.plot(xgrid, np.exp(actual_out), "k")
-
-sigma_points.shape
-
-ex_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
-
-plt.plot(ex_input.T)
-
-np.max(sigma_points, axis=0) - np.min(sigma_points, axis=0)
-
-mu_prior, K_prior = gpr.predict(xgrid[:, None], return_std=False, return_cov=True)
-
-plt.plot(xgrid, np.exp(mu_prior), "k")
-plt.plot(xgrid, np.exp(mu_prior - 1.96 * np.sqrt(np.diag(K_prior))), "k--")
-plt.plot(xgrid, np.exp(mu_prior + 1.96 * np.sqrt(np.diag(K_prior))), "k--")
-
-plt.plot(sqrt_U_approx(K_prior).T)
-
-sigma_points = gp_sigma_points(gpr, xgrid[:, None], alpha=0.1)
-
-plt.plot(xgrid, sigma_points.T)
+plt.plot(xgrid, np.exp(actual_output), "r")

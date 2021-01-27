@@ -31,7 +31,7 @@ def big_ut(mu_prior, K_prior, fx, *, alpha=1e-3, beta=2.0, kappa=0.0):
     transformed_sigma_points = fx(sigma_points)
 
     mu_post, K_post = unscented_transform(transformed_sigma_points, Wm, Wc)
-    return mu_post, K_post, transformed_sigma_points
+    return mu_post, K_post
 
 
 def gp_ukf(gpr, xgrid, fx, *, alpha=1e-3, beta=2.0, kappa=0.0):
@@ -42,8 +42,8 @@ def gp_ukf(gpr, xgrid, fx, *, alpha=1e-3, beta=2.0, kappa=0.0):
     assert mu_prior.shape == (n,)
     assert K_prior.shape == (n, n)
 
-    mu_post, K_post, sigma_points = big_ut(mu_prior, K_prior, fx, alpha=alpha, beta=beta, kappa=kappa)
-    return mu_post, K_post, sigma_points
+    mu_post, K_post = big_ut(mu_prior, K_prior, fx, alpha=alpha, beta=beta, kappa=kappa)
+    return mu_post, K_post
 
 
 def gp_sigma_points(gpr, xgrid, *, alpha=1e-3, beta=2.0, kappa=0.0):
