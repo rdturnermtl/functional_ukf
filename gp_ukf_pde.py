@@ -31,9 +31,6 @@ def only(L):
     return el
 
 
-init = np.log(np.ones(64) - np.sort(0.2 * np.random.randn(64)))
-
-
 class pde_operator(object):
     dt = 1e-3
     tracker_dt = 1.0
@@ -80,54 +77,46 @@ class pde_operator(object):
         return all_res
 
 
+# Setup problem
 op = pde_operator()
+xgrid = op.grid
+
+# Setup GP
+kernel = ConstantKernel(0.05, constant_value_bounds="fixed") * RBF(1.0, length_scale_bounds="fixed")
+gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=False, alpha=1e-5)
+
+init = only(gpr.sample_y(xgrid[:, None], 1, random_state=123).T)
+ex_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
+
+plt.plot(xgrid, np.exp(ex_input.T), "--")
+plt.plot(xgrid, np.exp(init), "k")
+
+actual_out = only(op.forward(init[None, :]))
+ex_out = op.forward(ex_input)
+
+plt.plot(xgrid, np.exp(ex_out.T), "--")
+plt.plot(xgrid, np.exp(actual_out), "k")
 
 _, storage = op.pde_solve(init, T=100)
 
 plot_kymograph(storage)  # visualize the result in a space-time plot
 
-# +
-# Setup and train GP to the observations on the nrg
-# TODO just use prior in filter, sample init from prior
-# use GP on the log
-grid_np = op.grid
-
-# TODO use fixed hypers: 0.981**2 * RBF(length_scale=0.691)
-#   sample init from these hypers instead
-#   what to use as obs of init??
-kernel = ConstantKernel(1.0, (1e-2, 1e2)) * RBF(0.1, (1e-2, 1e2))
-gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=True, alpha=1e-5)
-gpr.fit(grid_np[:, None][::3], init[::3])
+gpr.fit(xgrid[:, None][::10], init[::10])
 gpr.kernel_
-# -
+
+ex_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
+
+plt.plot(xgrid, np.exp(ex_input.T), "--")
+plt.plot(xgrid, np.exp(init), "k")
 
 # Now use GP-UKF to transform this into Gaussian on prob
-mu_post, K_post = gp_ukf(gpr, grid_np[:, None], op.forward)
-
-out1, = op.forward(init[None, :])
+mu_post, K_post = gp_ukf(gpr, xgrid[:, None], op.forward)
 
 # +
 # TODO cleanup plot
 xgrid = op.grid
 
-plt.plot(xgrid, np.exp(init), "g")
 plt.plot(xgrid, np.exp(mu_post), "k")
 plt.plot(xgrid, np.exp(mu_post - 1.96 * np.sqrt(np.diag(K_post))), "k--")
 plt.plot(xgrid, np.exp(mu_post + 1.96 * np.sqrt(np.diag(K_post))), "k--")
-plt.plot(xgrid, np.exp(out1), "r")
-# -
-
-# TODO plot init with sigma in, add sigma out to above plot
-np.var(init)
-
-kernel = ConstantKernel(0.05, constant_value_bounds="fixed") * RBF(1.0, length_scale_bounds="fixed")
-gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=True, alpha=1e-5)
-yy = gpr.sample_y(grid_np[:, None], 3)
-
-plt.plot(grid_np, np.exp(yy), "--")
-plt.plot(grid_np, np.exp(init), "k")
-
-yy2 = op.forward(yy.T)
-
-plt.plot(grid_np, np.exp(yy2).T, "--")
-plt.plot(grid_np, np.exp(out1), "k")
+plt.plot(xgrid, np.exp(actual_out), "r")
