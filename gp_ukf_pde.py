@@ -21,9 +21,18 @@ from pde import PDE, CartesianGrid, MemoryStorage, ScalarField, plot_kymograph
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 
+plt.rcParams["font.family"] = "STIXGeneral"
+plt.rcParams["mathtext.fontset"] = "stix"
+plt.rcParams["font.size"] = 10
+plt.rcParams["axes.labelsize"] = 10
+plt.rcParams["axes.labelweight"] = "bold"
+plt.rcParams["xtick.labelsize"] = 8
+plt.rcParams["ytick.labelsize"] = 8
+plt.rcParams["legend.fontsize"] = 8
+
 np.random.seed(0)
 
-memory = Memory(location=".")
+memory = Memory(location=".", verbose=0)
 
 
 def only(L):
@@ -115,47 +124,72 @@ gpr.fit(input_obs_points[:, None], input_obs)
 
 _, storage = op.pde_solve(actual_input)
 
-plot_kymograph(storage)  # visualize the result in a space-time plot
+_ = plot_kymograph(storage)  # visualize the result in a space-time plot
 
 # # Uncertainty on input state
 
 mu_prior, K_prior = gpr.predict(xgrid[:, None], return_std=False, return_cov=True)
 example_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
 
+plt.figure(figsize=(6, 3), dpi=150)
 gp_plot(xgrid, mu_prior, K_prior, warp=np.exp)
 plt.plot(xgrid, np.exp(example_input.T), "--")
 plt.plot(xgrid, np.exp(actual_input), "k")
 plt.plot(input_obs_points, np.exp(input_obs), "ro")
+plt.xlim(xgrid[0], xgrid[-1])
+plt.xlabel("$x$")
+plt.ylabel("$f(x,0)$")
+plt.grid("on")
 
 # # Uncertainty on output state
 
 example_output = op.forward(example_input)
 
+plt.figure(figsize=(6, 3), dpi=150)
 plt.plot(xgrid, np.exp(example_output.T), "--")
 plt.plot(xgrid, np.exp(actual_output), "k")
+plt.xlim(xgrid[0], xgrid[-1])
+plt.xlabel("$x$")
+plt.ylabel("$f(x,1)$")
+plt.grid("on")
 
 # # UT on input
 
 sigma_points = gp_sigma_points(gpr, xgrid[:, None], alpha=0.1)
 
+plt.figure(figsize=(6, 3), dpi=150)
 gp_plot(xgrid, mu_prior, K_prior, warp=np.exp)
 plt.plot(xgrid, np.exp(sigma_points.T), "--")
 plt.plot(xgrid, np.exp(actual_input), "k")
 plt.plot(xgrid, np.exp(sigma_points[0]), "k--")
 plt.plot(input_obs_points, np.exp(input_obs), "ro")
+plt.xlim(xgrid[0], xgrid[-1])
+plt.xlabel("$x$")
+plt.ylabel("$f(x,0)$")
+plt.grid("on")
 
 # # UT for output
 
 sigma_points_out = op.forward(sigma_points)
 
+plt.figure(figsize=(6, 3), dpi=150)
 plt.plot(xgrid, np.exp(sigma_points_out.T), "--")
 plt.plot(xgrid, np.exp(sigma_points_out[0]), "k--")
 plt.plot(xgrid, np.exp(actual_output), "k")
+plt.xlim(xgrid[0], xgrid[-1])
+plt.xlabel("$x$")
+plt.ylabel("$f(x,1)$")
+plt.grid("on")
 
 # # Putting it all together
 
 # Now use GP-UKF to transform this into Gaussian on prob
 mu_post, K_post = gp_ukf(gpr, xgrid[:, None], op.forward, alpha=0.1)
 
+plt.figure(figsize=(6, 3), dpi=150)
 gp_plot(xgrid, mu_post, K_post, warp=np.exp)
 plt.plot(xgrid, np.exp(actual_output), "r")
+plt.xlim(xgrid[0], xgrid[-1])
+plt.xlabel("$x$")
+plt.ylabel("$f(x,1)$")
+plt.grid("on")
