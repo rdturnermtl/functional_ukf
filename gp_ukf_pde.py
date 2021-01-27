@@ -27,27 +27,14 @@ np.random.seed(0)
 
 init = np.ones(64) - np.sort(0.2 * np.random.randn(64))
 
-# Expanded definition of the PDE
-diffusivity = "1.01 + tanh(x)"
-term_1 = f"({diffusivity}) * laplace(c)"
-term_2 = f"dot(gradient({diffusivity}), gradient(c))"
-eq = PDE({"c": f"{term_1} + {term_2}"}, bc={"value": 0})
 
-grid = CartesianGrid([[-5, 5]], 64)  # generate grid
-field = ScalarField(grid, init)  # generate initial condition
-grip_np, = grid.axes_coords
-
-storage = MemoryStorage()  # store intermediate information of the simulation
-res = eq.solve(field, 100, dt=1e-3, tracker=storage.tracker(1))  # solve the PDE
-
-plot_kymograph(storage)  # visualize the result in a space-time plot
-
-
+# +
 def state_to_vec(state):
+    # TODO can elim this func
     assert isinstance(state, ScalarField)
 
     data = state.data
-    grid, = res.grid.axes_coords
+    grid, = state.grid.axes_coords
 
     n_grid, = data.shape
     assert grid.shape == (n_grid,)
@@ -55,61 +42,84 @@ def state_to_vec(state):
     return data, grid
 
 
+class pde_operator(object):
+    def __init__(self, n_grid=64):
+        # TODO store the np grid instead
+        self.n_grid = n_grid
+
+        # Expanded definition of the PDE
+        diffusivity = "1.01 + tanh(x)"
+        term_1 = f"({diffusivity}) * laplace(c)"
+        term_2 = f"dot(gradient({diffusivity}), gradient(c))"
+        self.eq = PDE({"c": f"{term_1} + {term_2}"}, bc={"value": 0})
+
+        # TODO define grid first in func
+        self.grid = CartesianGrid([[-5, 5]], n_grid)  # generate grid
+
+        x_grid, = self.grid.axes_coords
+        assert x_grid.shape == (n_grid,)
+
+    def pde_solve(self, state, T=1):
+        # TODO bring back memoize
+        storage = MemoryStorage()  # store intermediate information of the simulation
+
+        # TODO experiment with exp - f - log xform on state in this func
+
+        field = ScalarField(self.grid, state)  # generate initial condition
+        # TODO make class level consts
+        res = self.eq.solve(field, T, dt=1e-3, tracker=storage.tracker(1))
+        data, _ = state_to_vec(res)
+        return data, storage
+
+    def forward(self, state):
+        n_pts, n_grid = state.shape
+        assert n_grid == self.n_grid
+
+        all_res = np.zeros_like(state)
+        for ii in range(n_pts):
+            all_res[ii, :], _ = self.pde_solve(state[ii, :])
+        return all_res
+
+
 # +
-@memory.cache
-def pde_solve(grid, state):
-    field = ScalarField(grid, state)  # generate initial condition
-    res = eq.solve(field, 1.0, dt=1e-3)
-    data, _ = state_to_vec(res)
-    return data
+op = pde_operator()
 
-
-def warp_func(state):
-    n_pts, n_grid = state.shape
-    # TODO assert compatible with grid
-
-    all_res = np.zeros_like(state)
-    for ii in range(n_pts):
-        all_res[ii, :] = pde_solve(grid, state[ii, :])
-    return all_res
-
-
+# TODO break into another block
+_, storage = op.pde_solve(init, T=100)
 # -
 
+plot_kymograph(storage)  # visualize the result in a space-time plot
+
+# +
 # Setup and train GP to the observations on the nrg
 # TODO just use prior in filter, sample init from prior
 # use GP on the log
+grid_np, = op.grid.axes_coords
+
+# TODO use fixed hypers: 0.981**2 * RBF(length_scale=0.691)
+#   sample init from these hypers instead
+#   what to use as obs of init??
 kernel = ConstantKernel(1.0, (1e-2, 1e2)) * RBF(0.1, (1e-2, 1e2))
 gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=True, alpha=1e-5)
-gpr.fit(grip_np[:, None][::3], init[::3])
+gpr.fit(grid_np[:, None][::3], init[::3])
 gpr.kernel_
+# -
 
 # Now use GP-UKF to transform this into Gaussian on prob
-mu_post, K_post = gp_ukf(gpr, grip_np[:, None], warp_func)
+mu_post, K_post = gp_ukf(gpr, grid_np[:, None], op.forward)
 
-mu_post
-
-np.diag(K_post)
-
-storage.data
-
-init
-
-out1, = warp_func(init[None, :])
-
-storage.data[1] - out1
-
-out1
-
-mu_post
+out1, = op.forward(init[None, :])
 
 # +
-xgrid, = grid.axes_coords
+# TODO cleanup plot
 
+xgrid, = op.grid.axes_coords
+
+plt.plot(xgrid, init, "g")
 plt.plot(xgrid, mu_post, "k")
 plt.plot(xgrid, mu_post - 1.96 * np.sqrt(np.diag(K_post)), "k--")
 plt.plot(xgrid, mu_post + 1.96 * np.sqrt(np.diag(K_post)), "k--")
 plt.plot(xgrid, out1, "r")
-# -
 
-grid.axes_coords[0]
+# +
+# TODO plot init with sigma in, add sigma out to above plot
