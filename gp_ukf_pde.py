@@ -31,6 +31,20 @@ def only(L):
     return el
 
 
+def gp_plot(xgrid, mu, K, *, warp):
+    LB = warp(mu - 1.96 * np.sqrt(np.diag(K)))
+    UB = warp(mu + 1.96 * np.sqrt(np.diag(K)))
+    plt.fill(
+        np.concatenate([xgrid, xgrid[::-1]]),
+        np.concatenate([LB, UB[::-1]]),
+        alpha=0.25,
+        fc="b",
+        ec="None",
+        label="95% confidence interval",
+    )
+    plt.plot(xgrid, warp(mu), "k--")
+
+
 class pde_operator(object):
     dt = 1e-3
     tracker_dt = 1e-2
@@ -105,8 +119,10 @@ plot_kymograph(storage)  # visualize the result in a space-time plot
 
 # # Uncertainty on input state
 
+mu_prior, K_prior = gpr.predict(xgrid[:, None], return_std=False, return_cov=True)
 example_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
 
+gp_plot(xgrid, mu_prior, K_prior, warp=np.exp)
 plt.plot(xgrid, np.exp(example_input.T), "--")
 plt.plot(xgrid, np.exp(actual_input), "k")
 plt.plot(input_obs_points, np.exp(input_obs), "ro")
@@ -122,6 +138,7 @@ plt.plot(xgrid, np.exp(actual_output), "k")
 
 sigma_points = gp_sigma_points(gpr, xgrid[:, None], alpha=0.1)
 
+gp_plot(xgrid, mu_prior, K_prior, warp=np.exp)
 plt.plot(xgrid, np.exp(sigma_points.T), "--")
 plt.plot(xgrid, np.exp(actual_input), "k")
 plt.plot(xgrid, np.exp(sigma_points[0]), "k--")
@@ -140,11 +157,5 @@ plt.plot(xgrid, np.exp(actual_output), "k")
 # Now use GP-UKF to transform this into Gaussian on prob
 mu_post, K_post = gp_ukf(gpr, xgrid[:, None], op.forward, alpha=0.1)
 
-# +
-# TODO cleanup plot
-xgrid = op.grid
-
-plt.plot(xgrid, np.exp(mu_post), "k")
-plt.plot(xgrid, np.exp(mu_post - 1.96 * np.sqrt(np.diag(K_post))), "k--")
-plt.plot(xgrid, np.exp(mu_post + 1.96 * np.sqrt(np.diag(K_post))), "k--")
+gp_plot(xgrid, mu_post, K_post, warp=np.exp)
 plt.plot(xgrid, np.exp(actual_output), "r")
