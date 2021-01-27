@@ -1,6 +1,7 @@
 # Custom
 *.ipynb
 video_out/*
+joblib/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
