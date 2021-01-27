@@ -29,23 +29,16 @@ init = np.ones(64) - np.sort(0.2 * np.random.randn(64))
 
 
 # +
-def state_to_vec(state):
-    # TODO can elim this func
-    assert isinstance(state, ScalarField)
-
-    data = state.data
-    grid, = state.grid.axes_coords
-
-    n_grid, = data.shape
-    assert grid.shape == (n_grid,)
-
-    return data, grid
+def only(L):
+    el, = L
+    return el
 
 
 class pde_operator(object):
     def __init__(self, n_grid=64):
         # TODO store the np grid instead
         self.n_grid = n_grid
+        self.grid = CartesianGrid([[-5, 5]], n_grid)  # generate grid
 
         # Expanded definition of the PDE
         diffusivity = "1.01 + tanh(x)"
@@ -53,22 +46,23 @@ class pde_operator(object):
         term_2 = f"dot(gradient({diffusivity}), gradient(c))"
         self.eq = PDE({"c": f"{term_1} + {term_2}"}, bc={"value": 0})
 
-        # TODO define grid first in func
-        self.grid = CartesianGrid([[-5, 5]], n_grid)  # generate grid
+        self.pde_solve = memory.cache(self.pde_solve, ignore=["self"])
 
         x_grid, = self.grid.axes_coords
         assert x_grid.shape == (n_grid,)
 
     def pde_solve(self, state, T=1):
-        # TODO bring back memoize
         storage = MemoryStorage()  # store intermediate information of the simulation
 
         # TODO experiment with exp - f - log xform on state in this func
 
         field = ScalarField(self.grid, state)  # generate initial condition
+
         # TODO make class level consts
         res = self.eq.solve(field, T, dt=1e-3, tracker=storage.tracker(1))
-        data, _ = state_to_vec(res)
+        assert isinstance(res, ScalarField)
+        assert np.array_equal(only(res.grid.axes_coords), only(self.grid.axes_coords))
+        data = res.data
         return data, storage
 
     def forward(self, state):
@@ -81,12 +75,11 @@ class pde_operator(object):
         return all_res
 
 
-# +
+# -
+
 op = pde_operator()
 
-# TODO break into another block
 _, storage = op.pde_solve(init, T=100)
-# -
 
 plot_kymograph(storage)  # visualize the result in a space-time plot
 
