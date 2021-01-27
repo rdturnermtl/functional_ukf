@@ -13,6 +13,7 @@
 #     name: gp_ukf
 # ---
 
+import matplotlib.pyplot as plt
 import numpy as np
 from gp_ukf_core import gp_ukf
 from joblib import Memory
@@ -54,21 +55,26 @@ def state_to_vec(state):
     return data, grid
 
 
+# +
 @memory.cache
+def pde_solve(grid, state):
+    field = ScalarField(grid, state)  # generate initial condition
+    res = eq.solve(field, 1.0, dt=1e-3)
+    data, _ = state_to_vec(res)
+    return data
+
+
 def warp_func(state):
     n_pts, n_grid = state.shape
     # TODO assert compatible with grid
 
     all_res = np.zeros_like(state)
     for ii in range(n_pts):
-        # TODO need to put memory around inside of the loop
-        field = ScalarField(grid, state[ii, :])  # generate initial condition
-        res = eq.solve(field, 1.0, dt=1e-3)
-        data, _ = state_to_vec(res)
-        # TODO assert some grid stuff
-        all_res[ii, :] = data
+        all_res[ii, :] = pde_solve(grid, state[ii, :])
     return all_res
 
+
+# -
 
 # Setup and train GP to the observations on the nrg
 # TODO just use prior in filter, sample init from prior
@@ -89,6 +95,21 @@ storage.data
 
 init
 
-out1 = warp_func(init[None, :])
+out1, = warp_func(init[None, :])
 
 storage.data[1] - out1
+
+out1
+
+mu_post
+
+# +
+xgrid, = grid.axes_coords
+
+plt.plot(xgrid, mu_post, "k")
+plt.plot(xgrid, mu_post - 1.96 * np.sqrt(np.diag(K_post)), "k--")
+plt.plot(xgrid, mu_post + 1.96 * np.sqrt(np.diag(K_post)), "k--")
+plt.plot(xgrid, out1, "r")
+# -
+
+grid.axes_coords[0]
