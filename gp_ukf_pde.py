@@ -15,7 +15,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gp_ukf_core import gp_ukf
+from gp_ukf_core import gp_sigma_points, gp_ukf, sqrt_U_approx
 from joblib import Memory
 from pde import PDE, CartesianGrid, MemoryStorage, ScalarField, plot_kymograph
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -109,8 +109,13 @@ ex_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
 plt.plot(xgrid, np.exp(ex_input.T), "--")
 plt.plot(xgrid, np.exp(init), "k")
 
+ex_out = op.forward(ex_input)
+
+plt.plot(xgrid, np.exp(ex_out.T), "--")
+plt.plot(xgrid, np.exp(actual_out), "k")
+
 # Now use GP-UKF to transform this into Gaussian on prob
-mu_post, K_post = gp_ukf(gpr, xgrid[:, None], op.forward)
+mu_post, K_post, sigma_points = gp_ukf(gpr, xgrid[:, None], op.forward, alpha=0.1)
 
 # +
 # TODO cleanup plot
@@ -120,3 +125,33 @@ plt.plot(xgrid, np.exp(mu_post), "k")
 plt.plot(xgrid, np.exp(mu_post - 1.96 * np.sqrt(np.diag(K_post))), "k--")
 plt.plot(xgrid, np.exp(mu_post + 1.96 * np.sqrt(np.diag(K_post))), "k--")
 plt.plot(xgrid, np.exp(actual_out), "r")
+# -
+
+plt.plot(xgrid, np.exp(sigma_points.T), "--")
+plt.plot(xgrid, np.exp(init), "k")
+
+sigma_points_out = op.forward(sigma_points)
+
+plt.plot(xgrid, np.exp(np.min(sigma_points_out, axis=0)), "--")
+plt.plot(xgrid, np.exp(np.max(sigma_points_out, axis=0)), "--")
+plt.plot(xgrid, np.exp(actual_out), "k")
+
+sigma_points.shape
+
+ex_input = gpr.sample_y(xgrid[:, None], 5, random_state=456).T
+
+plt.plot(ex_input.T)
+
+np.max(sigma_points, axis=0) - np.min(sigma_points, axis=0)
+
+mu_prior, K_prior = gpr.predict(xgrid[:, None], return_std=False, return_cov=True)
+
+plt.plot(xgrid, np.exp(mu_prior), "k")
+plt.plot(xgrid, np.exp(mu_prior - 1.96 * np.sqrt(np.diag(K_prior))), "k--")
+plt.plot(xgrid, np.exp(mu_prior + 1.96 * np.sqrt(np.diag(K_prior))), "k--")
+
+plt.plot(sqrt_U_approx(K_prior).T)
+
+sigma_points = gp_sigma_points(gpr, xgrid[:, None], alpha=0.1)
+
+plt.plot(xgrid, sigma_points.T)
