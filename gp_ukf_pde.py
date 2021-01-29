@@ -15,7 +15,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gp_ukf_core import gp_sigma_points, gp_ukf
+from gp_ukf_core import func_filter, gp_sigma_points, gp_ukf
 from joblib import Memory
 from pde import PDE, CartesianGrid, MemoryStorage, ScalarField, plot_kymograph
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -193,3 +193,36 @@ plt.xlim(xgrid[0], xgrid[-1])
 plt.xlabel("$x$")
 plt.ylabel("$f(x,1)$")
 plt.grid("on")
+
+# +
+T = 10
+noise_std = 0.1
+
+n_grid, = op.grid.shape
+idx = np.random.choice(n_grid, size=T)
+noise = np.random.randn(T) * noise_std
+
+obs = np.zeros(T)
+actual_state = np.zeros((T, n_grid))
+for ii in range(T):
+    curr = actual_input if ii == 0 else actual_state[ii - 1, :]
+    actual_state[ii, :] = only(op.forward(curr[None, :]))
+    obs[ii] = actual_state[ii, idx[ii]] + noise[ii]
+# -
+
+noise_var = noise_std ** 2
+mu_prior, K_prior = gpr.predict(xgrid[:, None], return_std=False, return_cov=True)
+mu_pre_obs, K_pre_obs, mu_post_obs, K_post_obs = func_filter(
+    obs, idx, noise_var, mu_prior, K_prior, op.forward, alpha=0.1
+)
+
+for ii in range(T):
+    plt.figure(figsize=(6, 3), dpi=150)
+    gp_plot(xgrid, mu_pre_obs[ii], K_pre_obs[ii], warp=np.exp)
+    gp_plot(xgrid, mu_post_obs[ii], K_post_obs[ii], warp=np.exp)
+    plt.plot(xgrid, np.exp(actual_state[ii, :]), "r")
+    plt.plot(xgrid[idx[ii]], np.exp(obs[ii]), "ko")
+    plt.xlim(xgrid[0], xgrid[-1])
+    plt.xlabel("$x$")
+    plt.ylabel(f"$f(x,{ii + 1})$")
+    plt.grid("on")
