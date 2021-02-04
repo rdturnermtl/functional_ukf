@@ -194,11 +194,14 @@ plt.xlabel("$x$")
 plt.ylabel("$f(x,1)$")
 plt.grid("on")
 
+# # Now possible to do PDE filtering
+
 # +
 T = 10
 noise_std = 0.1
-
 n_grid, = op.grid.shape
+
+# First generate the data
 idx = np.random.choice(n_grid, size=T)
 noise = np.random.randn(T) * noise_std
 
@@ -210,12 +213,14 @@ for ii in range(T):
     obs[ii] = actual_state[ii, idx[ii]] + noise[ii]
 # -
 
+# Run the filter
 noise_var = noise_std ** 2
 mu_prior, K_prior = gpr.predict(xgrid[:, None], return_std=False, return_cov=True)
 mu_pre_obs, K_pre_obs, mu_post_obs, K_post_obs = func_filter(
     obs, idx, noise_var, mu_prior, K_prior, op.forward, alpha=0.1
 )
 
+# Visualize it
 for ii in range(T):
     plt.figure(figsize=(6, 3), dpi=150)
     gp_plot(xgrid, mu_pre_obs[ii], K_pre_obs[ii], warp=np.exp)
