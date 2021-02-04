@@ -15,11 +15,20 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gp_ukf_core import gp_ukf
+from gp_ukf_core import gp_sigma_points, gp_ukf
 from scipy.special import betaln
 from scipy.stats import beta, binom, norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
+
+plt.rcParams["font.family"] = "STIXGeneral"
+plt.rcParams["mathtext.fontset"] = "stix"
+plt.rcParams["font.size"] = 10
+plt.rcParams["axes.labelsize"] = 10
+plt.rcParams["axes.labelweight"] = "bold"
+plt.rcParams["xtick.labelsize"] = 8
+plt.rcParams["ytick.labelsize"] = 8
+plt.rcParams["legend.fontsize"] = 8
 
 np.random.seed(0)
 
@@ -110,7 +119,7 @@ logpdf_true = log_integrand(p_grid)
 
 
 # +
-fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(6, 6))
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(4, 4), dpi=150)
 
 ax1.fill(
     np.concatenate([p_grid, p_grid[::-1]]),
@@ -163,3 +172,17 @@ bmc_tail_prob = 2 * np.minimum(bmc_tail_prob, 1.0 - bmc_tail_prob)
 
 print(f"exact: {exact_lik}, BMC CI: {CI}")
 print(f"tail prob: {bmc_tail_prob}")
+
+sigma_points = gp_sigma_points(gpr, p_grid[:, None], alpha=0.05)
+
+# +
+plt.figure(figsize=(6, 3), dpi=150)
+plt.plot(p_grid, np.exp(sigma_points.T))
+plt.plot(p_eval, np.exp(logpdf), "b.")
+plt.xlim(p_grid[0], p_grid[-1])
+plt.grid("on")
+plt.xlabel("$p$")
+plt.ylabel("lik")
+
+plt.tight_layout()
+# -

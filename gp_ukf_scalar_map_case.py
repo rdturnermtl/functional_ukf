@@ -19,6 +19,15 @@ from gp_ukf_core import big_ut
 from scipy.stats import norm
 from sklearn.gaussian_process import kernels
 
+plt.rcParams["font.family"] = "STIXGeneral"
+plt.rcParams["mathtext.fontset"] = "stix"
+plt.rcParams["font.size"] = 10
+plt.rcParams["axes.labelsize"] = 10
+plt.rcParams["axes.labelweight"] = "bold"
+plt.rcParams["xtick.labelsize"] = 8
+plt.rcParams["ytick.labelsize"] = 8
+plt.rcParams["legend.fontsize"] = 8
+
 np.random.seed(0)
 
 # +
@@ -65,7 +74,7 @@ rnd = np.random.RandomState(123)
 y_post = rnd.multivariate_normal(mu_post, K_post, size=5)
 
 # +
-fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(12, 4))
+fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(9, 3), dpi=150)
 
 ax1.fill(
     np.concatenate([xgrid, xgrid[::-1]]),
@@ -79,6 +88,8 @@ ax1.plot(xgrid, mu_mc, "k")
 ax1.plot(xgrid, y_exact.T)
 ax1.set_xlim(xgrid[0], xgrid[-1])
 ax1.grid("on")
+ax1.set_xlabel("$x$")
+ax1.set_ylabel(r"$\exp(f(x))$ (exact)")
 
 ax2.fill(
     np.concatenate([xgrid, xgrid[::-1]]),
@@ -92,5 +103,8 @@ ax2.plot(xgrid, mu_post, "k")
 ax2.plot(xgrid, y_post.T)
 ax2.set_xlim(xgrid[0], xgrid[-1])
 ax2.grid("on")
+ax2.set_xlabel("$x$")
+ax2.set_ylabel(r"$\exp(f(x))$ (UT)")
 
 plt.tight_layout()
+# -

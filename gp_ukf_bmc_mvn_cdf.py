@@ -120,7 +120,7 @@ UB = mu_prior + 1.96 * np.sqrt(np.diag(K_prior))
 logpdf_true = multivariate_normal.logpdf(xsec_grid, mvn_mu, mvn_cov)
 
 # +
-fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(6, 6))
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(4, 4), dpi=150)
 
 scalar_grid = xsec_grid[:, 0]
 
@@ -153,4 +153,3 @@ ax2.set_xlabel("$x_0$")
 ax2.set_ylabel("lik")
 
 plt.tight_layout()
-# -
